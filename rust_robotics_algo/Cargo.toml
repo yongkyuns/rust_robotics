@@ -1,0 +1,30 @@
+[package]
+name = "rust_robotics_algo"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# oorandom = {version="11.1"}
+# heapless= {version="0.7"}
+rand = "0.8"
+nalgebra = "0.30"
+num-traits = "0.2"
+nalgebra-numpy = "0.3"
+# nalgebra = {version="0.30", default_features=false, features=["libm","macros"]}
+# num-traits = {version="0.2", default_features=false, features=["libm"]}
+# nalgebra-numpy = {version="0.3.0", optional = true}
+
+[dependencies.osqp]
+version = "0.6"
+optional = true
+
+# [features]
+# default = []
+# numpy = ["osqp","nalgebra-numpy"] 
+# libm = []
+
+
+[package.metadata.docs.rs]
+features = ["numpy","libm"]
