@@ -867,7 +867,7 @@ pub struct PlotDemo {
 }
 
 impl eframe::App for PlotDemo {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, _ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // egui::CentralPanel::default().show(ctx, |_ui| {}); // just to paint a background for the windows to be on top of. Needed on web because of https://github.com/emilk/egui/issues/1548
     }
 }
