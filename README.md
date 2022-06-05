@@ -1,12 +1,3 @@
-# RustRobotics
-A collection of robotics algorithms and simulation environment for embedded rust.
+This folder contains the files required for the web app.
 
-RustRobotics is a rust port of [PythonRobotics](https://github.com/AtsushiSakai/PythonRobotics) algorithms. This is a learning journal in the form of implementing
-algorithms for my own use. 
-
-## Algorithms Implemeted
-- [x] Inverted pendulum LQR control
-- [ ] Inverted pendulum MPC control
-
-
-
+The reason the folder is called "docs" is because that is the name that GitHub requires in order to host a web page from the `master` branch of a repository. You can test the `eframe_template` at <https://emilk.github.io/eframe_template/>.

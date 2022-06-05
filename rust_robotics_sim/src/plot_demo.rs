@@ -2,6 +2,7 @@ use eframe::egui;
 use std::f64::consts::TAU;
 use std::ops::RangeInclusive;
 
+use crate::View;
 use egui::plot::{GridInput, GridMark};
 use egui::*;
 use plot::{
@@ -9,20 +10,6 @@ use plot::{
     Legend, Line, LineStyle, MarkerShape, Plot, PlotImage, Points, Polygon, Text, VLine, Value,
     Values,
 };
-
-/// Something to view in the demo windows
-pub trait View {
-    fn ui(&mut self, ui: &mut egui::Ui);
-}
-
-/// Something to view
-pub trait Demo {
-    /// `&'static` so we can also use it as a key to store open/close state.
-    fn name(&self) -> &'static str;
-
-    /// Show windows, etc
-    fn show(&mut self, ctx: &egui::Context, open: &mut bool);
-}
 
 // ----------------------------------------------------------------------------
 
@@ -872,22 +859,18 @@ impl eframe::App for PlotDemo {
     }
 }
 
-impl Demo for PlotDemo {
+impl View for PlotDemo {
     fn name(&self) -> &'static str {
         "🗠 Plot"
     }
 
     fn show(&mut self, ctx: &Context, open: &mut bool) {
-        use View as _;
         Window::new(self.name())
             .open(open)
             .default_size(vec2(400.0, 400.0))
             .vscroll(false)
             .show(ctx, |ui| self.ui(ui));
     }
-}
-
-impl View for PlotDemo {
     fn ui(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             egui::reset_button(ui, self);

@@ -11,6 +11,6 @@ fn main() {
     eframe::run_native(
         "Simulator",
         native_options,
-        Box::new(|cc| Box::new(rust_robotics_sim::TemplateApp::new(cc))),
+        Box::new(|cc| Box::new(rust_robotics_sim::App::new(cc))),
     );
 }
