@@ -1,4 +1,5 @@
-/docs
+/docs/rust_robotics_sim.js
+/docs/rust_robotics_sim_bg.wasm
 /target
 /python_interface/target
 Cargo.lock
