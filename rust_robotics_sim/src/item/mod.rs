@@ -1,4 +1,8 @@
+mod cart;
+mod ellipse;
 mod rectangle;
+pub use cart::Cart;
+pub use ellipse::{Circle, Ellipse};
 pub use rectangle::Rectangle;
 
 use crate::prelude::*;

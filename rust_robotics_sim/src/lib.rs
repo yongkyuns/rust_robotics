@@ -5,14 +5,18 @@ mod item;
 mod math;
 mod plot_demo;
 mod simulator;
+mod time;
 mod view;
 
 pub use app::App;
 pub use view::View;
 
 pub mod prelude {
-    pub use crate::item::{Rectangle, Shape, WithAngle, WithPosition, WithSize};
+    pub use crate::item::{
+        Cart, Circle, Ellipse, Rectangle, Shape, WithAngle, WithPosition, WithSize,
+    };
     pub use crate::math::{cos, sin};
+    pub use crate::time::Timer;
     pub use crate::View;
 }
 
