@@ -2,7 +2,7 @@
 
 use nannou::prelude::*;
 use rust_robotics_algo as rb;
-use rust_robotics_algo::lqr::*;
+use rust_robotics_algo::inverted_pendulum::*;
 use rust_robotics_algo::prelude::*;
 
 mod util;
@@ -10,23 +10,25 @@ use util::*;
 
 struct InvertedPendulum {
     state: rb::Vector4,
+    model: Model,
 }
 
 impl InvertedPendulum {
     pub fn new() -> Self {
         Self {
             state: vector![0., 0., random_range(-0.4, 0.4), 0.],
+            model: Model::default(),
         }
     }
 
     pub fn step(&mut self, dt: f32) {
         let mut x = self.state.clone();
-        let (A, B) = get_model_matrix(dt);
+        let (A, B) = self.model.get_model_matrix(dt);
 
         // let now = Instant::now();
 
         // Perform LQR control
-        let u = lqr_control(x, dt);
+        let u = lqr_control(x, &self.model, dt);
 
         // Update simulation based on control input
         x = A * x + B * u;

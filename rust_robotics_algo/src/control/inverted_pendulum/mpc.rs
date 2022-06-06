@@ -1,27 +1,15 @@
+use super::*;
 use crate::prelude::*;
 
-pub const l_bar: f32 = 2.0; // [m] Length of bar
-pub const M: f32 = 1.0; // [kg] Mass of cart
-pub const m: f32 = 1.0; // [kg] Mass of ball
-pub const g: f32 = 9.8; // [m/s^2] Gravity
+// pub const l_bar: f32 = 2.0; // [m] Length of bar
+// pub const M: f32 = 1.0; // [kg] Mass of cart
+// pub const m: f32 = 1.0; // [kg] Mass of ball
+// pub const g: f32 = 9.8; // [m/s^2] Gravity
 
 const N: usize = 12; // Prediction horizon
-const NX: usize = 4; // Number of states
-const NU: usize = 1; // Number of inputs
 
-pub fn get_model_matrix(dt: f32) -> (Matrix4, Vector4) {
-    let A = matrix![0., 1., 0., 0.;
-					0., 0., m*g / M, 0.;
-					0., 0., 0., 1.;
-					0., 0., g*(M+m)/(l_bar*M), 0.];
-
-    let B = vector![0., 1. / M, 0., 1. / (l_bar * M)];
-
-    (eye!(NX) + A * dt, B * dt)
-}
-
-pub fn mpc_control(_x: Vector4, dt: f32) -> f32 {
-    let (Ad, Bd) = get_model_matrix(dt);
+pub fn mpc_control(_x: Vector4, model: Model, dt: f32) -> f32 {
+    let (Ad, Bd) = model.get_model_matrix(dt);
 
     let u0 = 0.0;
     let umin = vector![(-30_f32 - u0).to_radians()];
@@ -103,7 +91,8 @@ mod tests {
     fn test_mpc_control() {
         let x = vector![0., 1., 1., 0.];
         let dt = 0.1;
-        let _u = mpc_control(x, dt);
+        let model = Model::default();
+        let _u = mpc_control(x, model, dt);
         // assert_eq!(1, 1);
     }
 }

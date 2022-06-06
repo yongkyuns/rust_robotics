@@ -23,11 +23,18 @@ pub trait Simulate {
     }
     fn step(&mut self, dt: f32);
     fn reset(&mut self);
-    fn draw(&self, plot_ui: &mut PlotUi);
 }
 
+pub trait Draw {
+    fn draw(&self, plot_ui: &mut PlotUi);
+    fn options_ui(&mut self, ui: &mut Ui);
+}
+
+pub trait SimulateEgui: Simulate + Draw {}
+impl<T> SimulateEgui for T where T: Simulate + Draw {}
+
 pub struct Simulator {
-    simulations: Vec<Box<dyn Simulate>>,
+    simulations: Vec<Box<dyn SimulateEgui>>,
     time: f32,
     sim_speed: usize,
 }
@@ -122,15 +129,40 @@ impl View for Simulator {
         //     5.0 * vec2(texture.aspect_ratio(), 1.0),
         // );
 
+        ui.horizontal(|ui| {
+            ui.collapsing("Instructions", |ui| {
+                ui.label("Pan by dragging, or scroll (+ shift = horizontal).");
+                ui.label("Box zooming: Right click to zoom in and zoom out using a selection.");
+                if cfg!(target_arch = "wasm32") {
+                    ui.label("Zoom with ctrl / ⌘ + pointer wheel, or with pinch gesture.");
+                } else if cfg!(target_os = "macos") {
+                    ui.label("Zoom with ctrl / ⌘ + scroll.");
+                } else {
+                    ui.label("Zoom with ctrl + scroll.");
+                }
+                ui.label("Reset view with double-click.");
+                // ui.add(crate::egui_github_link_file!());
+            });
+        });
+
+        self.simulations.iter_mut().for_each(|sim| {
+            ui.separator();
+            sim.options_ui(ui);
+        });
+
         let plot = Plot::new("items_demo")
             .legend(Legend::default().position(Corner::RightBottom))
             .show_x(false)
             .show_y(false)
             .data_aspect(1.0);
+
+        ui.separator();
+
         plot.show(ui, |plot_ui| {
             self.simulations
                 .iter_mut()
                 .for_each(|sim| sim.draw(plot_ui));
+
             // plot_ui.polygon(rect.name("Rectangle"));
             // plot_ui.hline(HLine::new(9.0).name("Lines horizontal"));
             // plot_ui.hline(HLine::new(-9.0).name("Lines horizontal"));

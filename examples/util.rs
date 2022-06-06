@@ -13,7 +13,10 @@ pub fn draw_line(draw: &Draw, color: Srgb<u8>, points: Vec<Point2>) {
 }
 
 pub fn draw_cart(draw: &Draw, x_pos: f32, angle: f32) {
-    use rust_robotics_algo::lqr::*;
+    use rust_robotics_algo::inverted_pendulum::*;
+
+    let model = Model::default();
+    let l_bar = model.l_bar;
 
     let w = 1.0;
     let h = 0.5;

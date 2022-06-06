@@ -8,7 +8,7 @@ pub mod util;
 pub mod prelude {
     pub use crate::util::*;
     pub use crate::*;
-    pub use control::inverted_pendulum_lqr_control as lqr;
+    pub use control::inverted_pendulum;
     pub use localization::particle_filter as pf;
     pub use nalgebra;
     pub use nalgebra::{matrix, vector};

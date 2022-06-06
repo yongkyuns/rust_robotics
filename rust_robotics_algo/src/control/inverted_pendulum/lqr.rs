@@ -1,18 +1,11 @@
+use super::Model;
 use crate::prelude::*;
 
-pub const l_bar: f32 = 2.0; // [m] Length of bar
-pub const M: f32 = 1.0; // [kg] Mass of cart
-pub const m: f32 = 1.0; // [kg] Mass of ball
-pub const g: f32 = 9.8; // [m/s^2] Gravity
-
-pub const nx: usize = 4; // Number of states
-pub const nu: usize = 1; // Number of input
-
-pub const max_iter: u32 = 150; // Max iteration for DARE
 pub const eps: f32 = 0.01; // Tolerance for computing matrix pseudo-inverse
+pub const max_iter: u32 = 150; // Max iteration for DARE
 
-pub fn lqr_control(x: Vector4, dt: f32) -> f32 {
-    let (Ad, Bd) = get_model_matrix(dt);
+pub fn lqr_control(x: Vector4, model: &Model, dt: f32) -> f32 {
+    let (Ad, Bd) = model.get_model_matrix(dt);
     let Q = diag![0., 1., 1., 0.];
     let R = diag![0.01];
     let K = dlqr(Ad, Bd, Q, R);
@@ -20,18 +13,7 @@ pub fn lqr_control(x: Vector4, dt: f32) -> f32 {
     *u.index(0)
 }
 
-pub fn get_model_matrix(dt: f32) -> (Matrix4, Vector4) {
-    let A = matrix![0., 1., 0., 0.;
-					0., 0., m*g / M, 0.;
-					0., 0., 0., 1.;
-					0., 0., g*(M+m)/(l_bar*M), 0.];
-
-    let B = vector![0., 1. / M, 0., 1. / (l_bar * M)];
-
-    (eye!(nx) + A * dt, B * dt)
-}
-
-pub fn dlqr(A: Matrix4, B: Vector4, Q: Matrix4, R: Matrix1) -> RowVector4 {
+fn dlqr(A: Matrix4, B: Vector4, Q: Matrix4, R: Matrix1) -> RowVector4 {
     let P = solve_DARE(A, B, Q, R);
 
     // compute the LQR gain
@@ -46,13 +28,13 @@ pub fn dlqr(A: Matrix4, B: Vector4, Q: Matrix4, R: Matrix1) -> RowVector4 {
     K
 }
 
-/// Solve the discrete time lqr controller.
+/// Solve the discrete time LQR controller.
 ///
 /// x[k+1] = A x[k] + B u[k]
 /// cost = sum x[k].T*Q*x[k] + u[k].T*R*u[k]
 ///
 /// # ref Bertsekas, p.151
-pub fn solve_DARE(A: Matrix4, B: Vector4, Q: Matrix4, R: Matrix1) -> Matrix4 {
+fn solve_DARE(A: Matrix4, B: Vector4, Q: Matrix4, R: Matrix1) -> Matrix4 {
     let mut P = Q;
     let AT = A.transpose();
     let BT = B.transpose();
