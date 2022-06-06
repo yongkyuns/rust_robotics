@@ -13,7 +13,7 @@ pub use view::View;
 
 pub mod prelude {
     pub use crate::item::{
-        Cart, Circle, Ellipse, Rectangle, Shape, WithAngle, WithPosition, WithSize,
+        draw_cart, Circle, Ellipse, Rectangle, Shape, WithAngle, WithPosition, WithSize,
     };
     pub use crate::math::{cos, sin};
     pub use crate::time::Timer;

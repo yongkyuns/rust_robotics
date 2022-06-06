@@ -1,3 +1,4 @@
+#[allow(unused)]
 use chrono::{Local, NaiveTime};
 
 pub struct Timer {

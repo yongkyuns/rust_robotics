@@ -1,66 +1,58 @@
-#![allow(non_snake_case)]
+mod pendulum;
 
 use crate::prelude::*;
-use crate::time::Timer;
+use pendulum::InvertedPendulum;
 
-use egui::*;
+use egui::{plot::PlotUi, *};
 use plot::{Corner, Legend, Plot};
-use rand::Rng;
 
-use rust_robotics_algo as rb;
-use rust_robotics_algo::lqr::*;
-use rust_robotics_algo::prelude::*;
-
-pub struct InvertedPendulum {
-    state: rb::Vector4,
+#[derive(PartialEq)]
+pub enum SimType {
+    InvertedPendulum,
 }
 
-impl Default for InvertedPendulum {
+pub trait Simulate {
+    fn sim_type(&self) -> SimType;
+    fn match_states(&mut self, other: Box<dyn Simulate>);
+    fn is_compatible(&self, other: Box<dyn Simulate>) -> bool {
+        if self.sim_type() == other.sim_type() {
+            true
+        } else {
+            false
+        }
+    }
+    fn step(&mut self, dt: f32);
+    fn reset(&mut self);
+    fn draw(&self, plot_ui: &mut PlotUi);
+}
+
+pub struct Simulator {
+    simulations: Vec<Box<dyn Simulate>>,
+    time: f32,
+    sim_speed: usize,
+}
+
+impl Default for Simulator {
     fn default() -> Self {
         Self {
-            state: vector![0., 0., rand::thread_rng().gen_range(-0.4..0.4), 0.],
+            simulations: vec![Box::new(InvertedPendulum::default())],
+            time: 0.0,
+            sim_speed: 2,
         }
     }
 }
 
-impl InvertedPendulum {
-    pub fn _new() -> Self {
-        Self::default()
-    }
-
-    pub fn step(&mut self, dt: f32) {
-        let mut x = self.state.clone();
-        let (A, B) = get_model_matrix(dt);
-
-        // let now = Instant::now();
-
-        // Perform LQR control
-        let u = lqr_control(x, dt);
-
-        // Update simulation based on control input
-        x = A * x + B * u;
-        self.state = x;
-
-        // println!("t = {}, Input :{}", now.elapsed().as_secs_f32(), u);
-        // println!("{}", u);
-    }
-    pub fn reset(&mut self) {
-        *self = Self::default();
-    }
-}
-
-#[derive(Default)]
-pub struct Simulator {
-    cart: Cart,
-    pub pendulum: InvertedPendulum,
-    time: Timer,
-}
-
 impl Simulator {
     pub fn update(&mut self) {
-        let dt = self.time.tick();
-        // let dt = 0.01;
-        self.pendulum.step(dt as f32);
+        let dt = 0.01;
+        self.time += dt;
+        self.simulations
+            .iter_mut()
+            .for_each(|sim| (0..self.sim_speed).for_each(|_| sim.step(dt)));
+    }
+
+    pub fn reset(&mut self) {
+        self.simulations.iter_mut().for_each(|sim| sim.reset());
     }
 }
 
@@ -136,6 +128,9 @@ impl View for Simulator {
             .show_y(false)
             .data_aspect(1.0);
         plot.show(ui, |plot_ui| {
+            self.simulations
+                .iter_mut()
+                .for_each(|sim| sim.draw(plot_ui));
             // plot_ui.polygon(rect.name("Rectangle"));
             // plot_ui.hline(HLine::new(9.0).name("Lines horizontal"));
             // plot_ui.hline(HLine::new(-9.0).name("Lines horizontal"));
@@ -151,11 +146,17 @@ impl View for Simulator {
             // plot_ui.text(Text::new(Value::new(2.5, -2.0), "such plot").name("Text"));
             // plot_ui.image(image.name("Image"));
             // plot_ui.arrows(arrows.name("Arrows"));
-            self.cart.plot(
-                plot_ui,
-                self.pendulum.state[0] as f64,
-                self.pendulum.state[2] as f64,
-            );
+            // draw_cart(
+            //     plot_ui,
+            //     self.pendulum.x_position() as f64,
+            //     self.pendulum.rod_angle() as f64,
+            // );
+
+            // self.cart.plot(
+            //     plot_ui,
+            //     self.pendulum.x_position() as f64,
+            //     self.pendulum.rod_angle() as f64,
+            // );
         });
         // .response
     }

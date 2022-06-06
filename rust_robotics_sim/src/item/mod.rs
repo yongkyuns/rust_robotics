@@ -1,7 +1,8 @@
 mod cart;
 mod ellipse;
 mod rectangle;
-pub use cart::Cart;
+
+pub use cart::draw_cart;
 pub use ellipse::{Circle, Ellipse};
 pub use rectangle::Rectangle;
 

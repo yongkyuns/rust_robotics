@@ -32,7 +32,7 @@ impl eframe::App for App {
             ui.heading("Rust Robotics");
 
             if ui.button("Reset").clicked() {
-                self.state.sim.pendulum.reset();
+                self.state.sim.reset();
             }
         }); // just to paint a background for the windows to be on top of. Needed on web because of https://github.com/emilk/egui/issues/1548
 
