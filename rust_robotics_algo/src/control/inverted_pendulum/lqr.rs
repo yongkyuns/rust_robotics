@@ -53,3 +53,29 @@ fn solve_DARE(A: Matrix4, B: Vector4, Q: Matrix4, R: Matrix1) -> Matrix4 {
     }
     return P;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nalgebra::{ArrayStorage, Const, Matrix};
+
+    pub type Mat<const M: usize, const N: usize, S = f32> =
+        Matrix<S, Const<M>, Const<N>, ArrayStorage<S, M, N>>;
+
+    fn mul<const M: usize, const N: usize>(x: Mat<M, N>, y: Mat<N, M>) -> f32 {
+        let z = x * y;
+        *z.index(0)
+    }
+
+    #[test]
+    fn test_case() {
+        let x = zeros!(4, 1).transpose();
+        let y = zeros!(4, 1);
+        // let x =
+        //     DMatrix::from_row_slice(&DVector::from_row_slice(&[0.0, 1.0, 0.0, 0.0])).transpose();
+        // let y = DVector::from_row_slice(&[0.0, 2.0, 0.0, 0.0]);
+        println!("{}", mul::<1, 4>(x, y));
+
+        // let dm3 = DMatrix::identity(4, 3);
+    }
+}

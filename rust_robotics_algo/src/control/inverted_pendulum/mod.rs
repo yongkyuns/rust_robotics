@@ -1,8 +1,12 @@
 pub mod lqr;
+pub mod pid;
+
 #[cfg(not(feature = "libm"))]
 pub mod mpc;
 
 pub use lqr::*;
+pub use pid::*;
+
 #[cfg(not(feature = "libm"))]
 pub use mpc::*;
 
@@ -14,6 +18,7 @@ pub const NX: usize = 4; // Number of states
 pub const NU: usize = 1; // Number of input
 
 /// Model parameters for inverted pendulum
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Model {
     pub l_bar: f32, // [m] Length of bar
     pub M: f32,     // [kg] Mass of cart

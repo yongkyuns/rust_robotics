@@ -1,4 +1,4 @@
-mod pendulum;
+pub mod pendulum;
 
 use crate::prelude::*;
 use pendulum::InvertedPendulum;
@@ -6,23 +6,12 @@ use pendulum::InvertedPendulum;
 use egui::{plot::PlotUi, *};
 use plot::{Corner, Legend, Plot};
 
-#[derive(PartialEq)]
-pub enum SimType {
-    InvertedPendulum,
-}
-
 pub trait Simulate {
-    fn sim_type(&self) -> SimType;
-    fn match_states(&mut self, other: Box<dyn Simulate>);
-    fn is_compatible(&self, other: Box<dyn Simulate>) -> bool {
-        if self.sim_type() == other.sim_type() {
-            true
-        } else {
-            false
-        }
-    }
+    fn get_state(&self) -> &dyn std::any::Any;
+    fn match_state_with(&mut self, other: &dyn Simulate);
     fn step(&mut self, dt: f32);
-    fn reset(&mut self);
+    fn reset_state(&mut self);
+    fn reset_all(&mut self);
 }
 
 pub trait Draw {
@@ -30,8 +19,18 @@ pub trait Draw {
     fn options_ui(&mut self, ui: &mut Ui);
 }
 
-pub trait SimulateEgui: Simulate + Draw {}
-impl<T> SimulateEgui for T where T: Simulate + Draw {}
+pub trait SimulateEgui: Simulate + Draw {
+    fn as_base(&self) -> &dyn Simulate;
+}
+
+impl<T> SimulateEgui for T
+where
+    T: Simulate + Draw,
+{
+    fn as_base(&self) -> &dyn Simulate {
+        self
+    }
+}
 
 pub struct Simulator {
     simulations: Vec<Box<dyn SimulateEgui>>,
@@ -58,8 +57,14 @@ impl Simulator {
             .for_each(|sim| (0..self.sim_speed).for_each(|_| sim.step(dt)));
     }
 
-    pub fn reset(&mut self) {
-        self.simulations.iter_mut().for_each(|sim| sim.reset());
+    pub fn reset_state(&mut self) {
+        self.simulations
+            .iter_mut()
+            .for_each(|sim| sim.reset_state());
+    }
+    pub fn add(&mut self) {
+        let id = self.simulations.len() + 1;
+        self.simulations.push(Box::new(InvertedPendulum::new(id)));
     }
 }
 
@@ -145,9 +150,32 @@ impl View for Simulator {
             });
         });
 
-        self.simulations.iter_mut().for_each(|sim| {
-            ui.separator();
-            sim.options_ui(ui);
+        ui.separator();
+        ui.horizontal(|ui| {
+            if ui.button("Restart").clicked() {
+                self.simulations
+                    .iter_mut()
+                    .for_each(|sim| sim.reset_state());
+
+                let (first, rest) = self.simulations.split_at_mut(1);
+                if let Some(first) = first.first() {
+                    rest.iter_mut()
+                        .for_each(|sim| sim.match_state_with(first.as_base()));
+                }
+            }
+            if ui.button("Reset All").clicked() {
+                self.simulations.iter_mut().for_each(|sim| sim.reset_all());
+            }
+            if ui.button("Add New").clicked() {
+                self.add();
+            }
+        });
+
+        ui.horizontal(|ui| {
+            self.simulations.iter_mut().for_each(|sim| {
+                ui.separator();
+                sim.options_ui(ui);
+            });
         });
 
         let plot = Plot::new("items_demo")

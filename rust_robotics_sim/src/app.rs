@@ -30,10 +30,6 @@ impl eframe::App for App {
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::widgets::global_dark_light_mode_switch(ui);
             ui.heading("Rust Robotics");
-
-            if ui.button("Reset").clicked() {
-                self.state.sim.reset();
-            }
         }); // just to paint a background for the windows to be on top of. Needed on web because of https://github.com/emilk/egui/issues/1548
 
         self.state.sim.update();

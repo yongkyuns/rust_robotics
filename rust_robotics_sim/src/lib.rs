@@ -1,12 +1,12 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
-mod app;
-mod item;
-mod math;
-mod plot_demo;
-mod simulator;
-mod time;
-mod view;
+pub mod app;
+pub mod item;
+pub mod math;
+pub mod plot_demo;
+pub mod simulator;
+pub mod time;
+pub mod view;
 
 pub use app::App;
 pub use view::View;
