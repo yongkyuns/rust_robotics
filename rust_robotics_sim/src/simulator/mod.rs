@@ -3,23 +3,66 @@ pub mod pendulum;
 use crate::prelude::*;
 use pendulum::InvertedPendulum;
 
-use egui::{plot::PlotUi, *};
+use egui::{
+    plot::{Line, PlotUi, Values},
+    *,
+};
 use plot::{Corner, Legend, Plot};
 
+/// Base trait to make simulation work within `rust robotics`.
+///
+/// Users can implement this trait to make custom simulations.
 pub trait Simulate {
+    /// Getter method for internal state of an object that implements [`Simulate`]
+    ///
+    /// This method allows simulations of same type to communicate its internal
+    /// state. The usecase for this method is when we want to align the initial
+    /// conditions of multiple simulations, so that they can be compared with
+    /// respect to each other throughout the simulation.
     fn get_state(&self) -> &dyn std::any::Any;
+
+    /// Match the current simulation's state with that of another object, as long
+    /// as it's state is compatible with the current simulation.
     fn match_state_with(&mut self, other: &dyn Simulate);
+
+    /// Take a single step through simulation based on the given time delta
     fn step(&mut self, dt: f32);
+
+    /// Reset the dynamic states of the current simulation object.
+    ///
+    /// Any dynamic states that get updated with [`Simulate::step`] should be
+    /// reset to the default values using this method. Anything that is **not a
+    /// dynamic state of the system (e.g. tunable parameters) should not be
+    /// reset using this method.**
     fn reset_state(&mut self);
+
+    /// Reset the dynamic states, as well as any other parameters into its default
+    /// values
+    ///
+    /// This is a hard reset on the simulation, instead of restarting the
+    /// simulation with same parameters.
     fn reset_all(&mut self);
 }
 
+/// Trait to allow visually representing simulation (simulation graphics + GUI)
 pub trait Draw {
+    /// Draw the simulation onto a 2D scene
     fn draw(&self, plot_ui: &mut PlotUi);
+    /// Draw any GUI elements to interact with the simulation
     fn options_ui(&mut self, ui: &mut Ui);
+    /// Draw time-domain plot
+    fn plot(&self, plot_ui: &mut PlotUi) {}
 }
 
+/// Super-trait for objects which implement both [`Simulate`] and [`Draw`]
+///
+/// This trait is required in order to simulate and draw using [`egui`].
 pub trait SimulateEgui: Simulate + Draw {
+    /// A downcast method to access another simulation object as a generic [`Simulate`]
+    /// object, instead of [`SimulateEgui`].
+    ///
+    /// The primary usecase for this method is for state synchronization between
+    /// multiple simulations via [`Simulate::match_state_with`]
     fn as_base(&self) -> &dyn Simulate;
 }
 
@@ -32,10 +75,19 @@ where
     }
 }
 
+/// A concrete type for containing simulations and executing them
 pub struct Simulator {
+    /// An array of simulations to be shown on the same window and simulated
+    /// together with a uniform time step.
     simulations: Vec<Box<dyn SimulateEgui>>,
+    /// Current simulation time in seconds.
     time: f32,
+    /// The speed with which to execute the simulation. This is actually a
+    /// multiplier to indicate how many times to call [`step`](Simulate::step) when
+    /// [`update`](Self::update) is called.
     sim_speed: usize,
+    /// Settings to indicate whether to show the graph of simulation signals
+    show_graph: bool,
 }
 
 impl Default for Simulator {
@@ -44,11 +96,13 @@ impl Default for Simulator {
             simulations: vec![Box::new(InvertedPendulum::default())],
             time: 0.0,
             sim_speed: 2,
+            show_graph: false,
         }
     }
 }
 
 impl Simulator {
+    /// Update the simulation for a single time step
     pub fn update(&mut self) {
         let dt = 0.01;
         self.time += dt;
@@ -57,83 +111,21 @@ impl Simulator {
             .for_each(|sim| (0..self.sim_speed).for_each(|_| sim.step(dt)));
     }
 
+    /// Reset the states of all simulations within the currrent [`Simulator`]
     pub fn reset_state(&mut self) {
         self.simulations
             .iter_mut()
             .for_each(|sim| sim.reset_state());
     }
+
+    /// Add a new simulation instance to the current [`Simulator`]
     pub fn add(&mut self) {
         let id = self.simulations.len() + 1;
         self.simulations.push(Box::new(InvertedPendulum::new(id)));
     }
-}
 
-impl View for Simulator {
-    fn name(&self) -> &'static str {
-        "Simulator"
-    }
-
-    fn show(&mut self, ctx: &Context, open: &mut bool) {
-        Window::new(self.name())
-            .open(open)
-            .default_size(vec2(400.0, 400.0))
-            .vscroll(false)
-            .show(ctx, |ui| self.ui(ui));
-    }
-
-    fn ui(&mut self, ui: &mut Ui) {
-        // let rect = Rectangle::new()
-        //     .with_width(4.0)
-        //     .with_height(2.0)
-        //     .with_angle(std::f64::consts::PI / 4.0)
-        //     .into_polygon();
-        // // rect.color(color)
-
-        // let n = 100;
-        // let mut sin_values: Vec<_> = (0..=n)
-        //     .map(|i| remap(i as f64, 0.0..=n as f64, -TAU..=TAU))
-        //     .map(|i| Value::new(i, i.sin()))
-        //     .collect();
-
-        // let line = Line::new(Values::from_values(sin_values.split_off(n / 2))).fill(0.0);
-        // let polygon = Ellipse::new()
-        //     .with_width(4.0)
-        //     .with_height(2.0)
-        //     .with_angle(std::f64::consts::PI / 4.0)
-        //     .into_polygon();
-
-        // let circle = Circle::new().with_radius(2.0).into_polygon();
-
-        // let points = Points::new(Values::from_values(sin_values))
-        //     .stems(-1.5)
-        //     .radius(1.0);
-
-        // let arrows = {
-        //     let pos_radius = 8.0;
-        //     let tip_radius = 7.0;
-        //     let arrow_origins = Values::from_parametric_callback(
-        //         |t| (pos_radius * t.sin(), pos_radius * t.cos()),
-        //         0.0..TAU,
-        //         36,
-        //     );
-        //     let arrow_tips = Values::from_parametric_callback(
-        //         |t| (tip_radius * t.sin(), tip_radius * t.cos()),
-        //         0.0..TAU,
-        //         36,
-        //     );
-        //     Arrows::new(arrow_origins, arrow_tips)
-        // };
-
-        // let texture: &egui::TextureHandle = self.texture.get_or_insert_with(|| {
-        //     ui.ctx()
-        //         .load_texture("plot_demo", egui::ColorImage::example())
-        // });
-        // let image = PlotImage::new(
-        //     texture,
-        //     Value::new(0.0, 10.0),
-        //     5.0 * vec2(texture.aspect_ratio(), 1.0),
-        // );
-
+    /// Draw 2D graphics and GUI elements related to simulation
+    fn scene_ui(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.collapsing("Instructions", |ui| {
                 ui.label("Pan by dragging, or scroll (+ shift = horizontal).");
@@ -150,13 +142,17 @@ impl View for Simulator {
             });
         });
 
+        ui.checkbox(&mut self.show_graph, "Show Graph");
+
         ui.separator();
+
         ui.horizontal(|ui| {
             if ui.button("Restart").clicked() {
                 self.simulations
                     .iter_mut()
                     .for_each(|sim| sim.reset_state());
 
+                // Use the first simulation's states to sync with the rest of simulations
                 let (first, rest) = self.simulations.split_at_mut(1);
                 if let Some(first) = first.first() {
                     rest.iter_mut()
@@ -173,13 +169,12 @@ impl View for Simulator {
 
         ui.horizontal(|ui| {
             self.simulations.iter_mut().for_each(|sim| {
-                ui.separator();
                 sim.options_ui(ui);
             });
         });
 
-        let plot = Plot::new("items_demo")
-            .legend(Legend::default().position(Corner::RightBottom))
+        let plot = Plot::new("Scene")
+            .legend(Legend::default().position(Corner::RightTop))
             .show_x(false)
             .show_y(false)
             .data_aspect(1.0);
@@ -190,34 +185,54 @@ impl View for Simulator {
             self.simulations
                 .iter_mut()
                 .for_each(|sim| sim.draw(plot_ui));
-
-            // plot_ui.polygon(rect.name("Rectangle"));
-            // plot_ui.hline(HLine::new(9.0).name("Lines horizontal"));
-            // plot_ui.hline(HLine::new(-9.0).name("Lines horizontal"));
-            // plot_ui.vline(VLine::new(9.0).name("Lines vertical"));
-            // plot_ui.vline(VLine::new(-9.0).name("Lines vertical"));
-            // plot_ui.line(line.name("Line with fill"));
-            // plot_ui.polygon(polygon.name("Convex polygon"));
-            // plot_ui.polygon(circle.name("Circle"));
-            // plot_ui.points(points.name("Points with stems"));
-            // plot_ui.text(Text::new(Value::new(-3.0, -3.0), "wow").name("Text"));
-            // plot_ui.text(Text::new(Value::new(-2.0, 2.5), "so graph").name("Text"));
-            // plot_ui.text(Text::new(Value::new(3.0, 3.0), "much color").name("Text"));
-            // plot_ui.text(Text::new(Value::new(2.5, -2.0), "such plot").name("Text"));
-            // plot_ui.image(image.name("Image"));
-            // plot_ui.arrows(arrows.name("Arrows"));
-            // draw_cart(
-            //     plot_ui,
-            //     self.pendulum.x_position() as f64,
-            //     self.pendulum.rod_angle() as f64,
-            // );
-
-            // self.cart.plot(
-            //     plot_ui,
-            //     self.pendulum.x_position() as f64,
-            //     self.pendulum.rod_angle() as f64,
-            // );
         });
-        // .response
+    }
+
+    fn graph_ui(&mut self, ui: &mut Ui) {
+        self.simulations.iter_mut().for_each(|sim| {
+            Plot::new("Plot")
+                .legend(Legend::default().position(Corner::RightTop))
+                .data_aspect(1.0)
+                .show(ui, |plot_ui| sim.plot(plot_ui));
+        });
+    }
+}
+
+impl View for Simulator {
+    fn name(&self) -> &'static str {
+        "Simulator"
+    }
+
+    fn show(&mut self, ctx: &Context, open: &mut bool) {
+        Window::new(self.name())
+            .open(open)
+            .default_size(vec2(400.0, 400.0))
+            .vscroll(false)
+            .show(ctx, |ui| self.scene_ui(ui));
+
+        if self.show_graph {
+            Window::new(format!("{} {}", self.name(), "Plot"))
+                .open(open)
+                .default_size(vec2(400.0, 400.0))
+                .vscroll(false)
+                .show(ctx, |ui| self.graph_ui(ui));
+        }
+    }
+
+    fn ui(&mut self, ui: &mut Ui) {
+        if self.show_graph {
+            egui::SidePanel::right("right_panel")
+                .resizable(true)
+                .default_width(150.0)
+                .width_range(80.0..=500.0)
+                .show_inside(ui, |ui| {
+                    self.graph_ui(ui);
+                });
+            egui::CentralPanel::default().show_inside(ui, |ui| {
+                self.scene_ui(ui);
+            });
+        } else {
+            self.scene_ui(ui);
+        }
     }
 }

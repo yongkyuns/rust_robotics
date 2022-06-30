@@ -23,12 +23,14 @@ impl InvertedPendulum {
 
     pub fn step(&mut self, dt: f32) {
         let mut x = self.state.clone();
-        let (A, B) = self.model.get_model_matrix(dt);
+        // let (A, B) = self.model.get_model_matrix(dt);
+        let (A, B) = self.model.model(dt);
 
         // let now = Instant::now();
 
         // Perform LQR control
-        let u = lqr_control(x, &self.model, dt);
+        // let u = lqr_control(x, &self.model, dt);
+        let u = 0.0;
 
         // Update simulation based on control input
         x = A * x + B * u;

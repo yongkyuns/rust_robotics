@@ -1,4 +1,3 @@
-pub mod lqr;
 pub mod pid;
 
 #[cfg(not(feature = "libm"))]
@@ -10,44 +9,95 @@ pub use pid::*;
 #[cfg(not(feature = "libm"))]
 pub use mpc::*;
 
+pub use crate::control::{StateSpace, LQR};
 use crate::prelude::*;
 
-pub const g: f32 = 9.81; // [m/s^2] Gravity
+/// Gravity [m/s^2]
+pub const g: f32 = 9.81;
 
-pub const NX: usize = 4; // Number of states
-pub const NU: usize = 1; // Number of input
+/// Number of states
+pub const NX: usize = 4;
+/// Number of control input
+pub const NU: usize = 1;
 
-/// Model parameters for inverted pendulum
+/// Convenience type for denoting system matrix A
+pub type AMat = Mat<NX, NX>;
+/// Convenience type for denoting input matrix B
+pub type BMat = Mat<NX, NU>;
+/// Convenience type for denoting Q matrix
+pub type QMat = AMat;
+/// Convenience type for denoting R matrix
+pub type RMat = Mat<NU, NU>;
+
+/// Define model parameters and LQR-related parameters.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Model {
-    pub l_bar: f32, // [m] Length of bar
-    pub M: f32,     // [kg] Mass of cart
-    pub m: f32,     // [kg] Mass of ball
-                    // pub dt: f32,    // [s] Sample time
+    /// Length of bar [m]
+    pub l_bar: f32,
+    /// Mass of cart [kg]
+    pub m_cart: f32,
+    /// Mass of ball [kg]
+    pub m_ball: f32,
+    /// Q matrix
+    pub Q: QMat,
+    /// R matrix
+    pub R: RMat,
+    /// Tolerance for computing matrix pseudo-inverse
+    pub eps: f32,
+    /// Maximum number of iteration for solving
+    /// Discrete Algebraic Ricatti Equation
+    pub max_iter: u32,
 }
 
 impl Default for Model {
     fn default() -> Self {
         Self {
             l_bar: 2.0,
-            M: 1.0,
-            m: 1.0,
-            // dt: 0.01,
+            m_cart: 1.0,
+            m_ball: 1.0,
+            eps: 0.01,
+            max_iter: 150,
+            Q: diag![0., 1., 1., 0.],
+            R: diag![0.01],
         }
     }
 }
 
-impl Model {
-    pub fn get_model_matrix(&self, dt: f32) -> (Matrix4, Vector4) {
-        let Self { l_bar, M, m } = *self;
+impl StateSpace<NX, NU> for Model {
+    fn model(&self, dt: f32) -> (AMat, BMat) {
+        let Self {
+            l_bar,
+            m_cart: m_c,
+            m_ball: m_b,
+            ..
+        } = *self;
 
         let A = matrix![0., 1.,    0., 0.;
-						0., 0., m*g / M, 0.;
+						0., 0., m_b*g / m_c, 0.;
 						0., 0., 0., 1.;
-						0., 0., g*(M+m)/(l_bar*M), 0.];
+						0., 0., g*(m_c+m_b)/(l_bar*m_c), 0.];
 
-        let B = vector![0., 1. / M, 0., 1. / (l_bar * M)];
+        let B = vector![0., 1. / m_c, 0., 1. / (l_bar * m_c)];
 
         (eye!(NX) + A * dt, B * dt)
+    }
+}
+
+pub mod lqr {
+    use super::*;
+
+    impl LQR<NX, NU> for Model {
+        fn Q(&self) -> QMat {
+            self.Q
+        }
+        fn R(&self) -> RMat {
+            self.R
+        }
+        fn epsilon(&self) -> f32 {
+            self.eps
+        }
+        fn max_iter(&self) -> u32 {
+            self.max_iter
+        }
     }
 }

@@ -3,14 +3,14 @@ use crate::math::{cos, sin};
 use egui::plot::{Line, PlotUi, Values};
 use rust_robotics_algo::inverted_pendulum::Model;
 
-pub fn draw_cart(plot_ui: &mut PlotUi, x_pos: f32, rod_angle: f32, model: &Model) {
+pub fn draw_cart(plot_ui: &mut PlotUi, x_pos: f32, rod_angle: f32, model: &Model, name: &str) {
     let x = x_pos as f64;
     let y = 0.0;
 
-    let r_ball = 0.1 * model.m as f64;
-    let r_whl = 0.1 * model.M as f64;
-    let w = 1.0 * model.M as f64;
-    let h = 0.5 * model.M as f64;
+    let r_ball = 0.1 * model.m_ball as f64;
+    let r_whl = 0.1 * model.m_cart as f64;
+    let w = 1.0 * model.m_cart as f64;
+    let h = 0.5 * model.m_cart as f64;
     let len = model.l_bar as f64;
     let th = rod_angle as f64;
 
@@ -36,7 +36,7 @@ pub fn draw_cart(plot_ui: &mut PlotUi, x_pos: f32, rod_angle: f32, model: &Model
         .into_polygon();
     let rod = Line::new(Values::from_values(vec![rod_bottom, rod_top]));
 
-    plot_ui.polygon(body.name("Cart"));
+    plot_ui.polygon(body.name(name));
     plot_ui.polygon(left_wheel);
     plot_ui.polygon(right_wheel);
     plot_ui.polygon(ball);

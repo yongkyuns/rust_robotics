@@ -1,8 +1,10 @@
 #![allow(non_snake_case)]
 
 use super::Draw;
+use crate::data::{IntoValues, TimeTable};
 use crate::prelude::draw_cart;
 
+use egui::plot::Line;
 use egui::{plot::PlotUi, ComboBox, Ui};
 use rand::Rng;
 use rb::inverted_pendulum::*;
@@ -11,6 +13,8 @@ use rust_robotics_algo as rb;
 
 use super::Simulate;
 
+pub type State = rb::Vector4;
+
 /// Controller for the inverted pendulum simulation
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Controller {
@@ -18,16 +22,10 @@ pub enum Controller {
     PID(PID),
 }
 
-// impl Default for Controller {
-//     fn default() -> Self {
-//         Self::LQR
-//     }
-// }
-
 impl Controller {
-    pub fn control(&mut self, x: rb::Vector4, dt: f32) -> f32 {
+    pub fn control(&mut self, x: State, dt: f32) -> f32 {
         match self {
-            Self::LQR(model) => lqr_control(x, model, dt),
+            Self::LQR(model) => *model.control(x, dt).index(0),
             Self::PID(pid) => pid.control(-x[2], dt),
         }
     }
@@ -76,14 +74,14 @@ impl Controller {
                             .suffix(" m"),
                     );
                     ui.add(
-                        egui::DragValue::new(&mut model.M)
+                        egui::DragValue::new(&mut model.m_cart)
                             .speed(0.01)
                             .clamp_range(0.1_f32..=3.0)
                             .prefix("Cart Mass: ")
                             .suffix(" kg"),
                     );
                     ui.add(
-                        egui::DragValue::new(&mut model.m)
+                        egui::DragValue::new(&mut model.m_ball)
                             .speed(0.01)
                             .clamp_range(0.1_f32..=10.0)
                             .prefix("Ball Mass: ")
@@ -128,19 +126,29 @@ impl Controller {
 
 /// Inverted pendulum simulation
 pub struct InvertedPendulum {
-    state: rb::Vector4,
+    state: State,
     controller: Controller,
     model: Model,
     id: usize,
+    data: TimeTable,
 }
 
 impl Default for InvertedPendulum {
     fn default() -> Self {
+        let state = vector![0., 0., rand::thread_rng().gen_range(-0.4..0.4), 0.];
+        let data = TimeTable::init_with_names(vec![
+            "Lateral Position",
+            "Lateral Velocity",
+            "Rod Angle",
+            "Rod Angular Velocity",
+            "Control Input",
+        ]);
         Self {
-            state: vector![0., 0., rand::thread_rng().gen_range(-0.4..0.4), 0.],
+            state,
             controller: Controller::lqr(Model::default()),
             model: Model::default(),
             id: 1,
+            data,
         }
     }
 }
@@ -174,7 +182,7 @@ impl Simulate for InvertedPendulum {
     }
     fn step(&mut self, dt: f32) {
         let mut x = self.state.clone();
-        let (A, B) = self.model.get_model_matrix(dt);
+        let (A, B) = self.model.model(dt);
 
         // Compute control command
         let u = self.controller.control(x, dt);
@@ -182,10 +190,22 @@ impl Simulate for InvertedPendulum {
         // Update simulation based on control input
         x = A * x + B * u;
         self.state = x;
+
+        self.data.add_sample(
+            self.data.time_last() + dt,
+            vec![
+                self.state[0],
+                self.state[1],
+                self.state[2],
+                self.state[3],
+                u,
+            ],
+        );
     }
     fn reset_state(&mut self) {
         self.state = vector![0., 0., rand::thread_rng().gen_range(-0.4..0.4), 0.];
         self.controller.reset_state();
+        self.data.clear();
     }
     fn reset_all(&mut self) {
         *self = Self::default();
@@ -193,40 +213,58 @@ impl Simulate for InvertedPendulum {
 }
 
 impl Draw for InvertedPendulum {
+    fn plot(&self, plot_ui: &mut PlotUi) {
+        let names = self.data.names();
+        (0..self.data.ncols()).for_each(|i| {
+            self.data
+                .values_from_column(i)
+                .map(|values| plot_ui.line(Line::new(values).name(&names[i])));
+        });
+    }
+
     fn draw(&self, plot_ui: &mut PlotUi) {
-        draw_cart(plot_ui, self.x_position(), self.rod_angle(), &self.model);
+        draw_cart(
+            plot_ui,
+            self.x_position(),
+            self.rod_angle(),
+            &self.model,
+            &format!("Cart {}", self.id),
+        );
     }
     fn options_ui(&mut self, ui: &mut Ui) {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 ui.group(|ui| {
                     ui.vertical(|ui| {
-                        ui.label("Cart:");
-                        ui.add(
-                            egui::DragValue::new(&mut self.model.l_bar)
-                                .speed(0.01)
-                                .clamp_range(0.1_f32..=10.0)
-                                .prefix("Beam Length: ")
-                                .suffix(" m"),
-                        );
-                        ui.add(
-                            egui::DragValue::new(&mut self.model.M)
-                                .speed(0.01)
-                                .clamp_range(0.1_f32..=3.0)
-                                .prefix("Cart Mass: ")
-                                .suffix(" kg"),
-                        );
-                        ui.add(
-                            egui::DragValue::new(&mut self.model.m)
-                                .speed(0.01)
-                                .clamp_range(0.1_f32..=10.0)
-                                .prefix("Ball Mass: ")
-                                .suffix(" kg"),
-                        );
+                        ui.group(|ui| {
+                            ui.label("Cart:");
+                            ui.add(
+                                egui::DragValue::new(&mut self.model.l_bar)
+                                    .speed(0.01)
+                                    .clamp_range(0.1_f32..=10.0)
+                                    .prefix("Beam Length: ")
+                                    .suffix(" m"),
+                            );
+                            ui.add(
+                                egui::DragValue::new(&mut self.model.m_cart)
+                                    .speed(0.01)
+                                    .clamp_range(0.1_f32..=3.0)
+                                    .prefix("Cart Mass: ")
+                                    .suffix(" kg"),
+                            );
+                            ui.add(
+                                egui::DragValue::new(&mut self.model.m_ball)
+                                    .speed(0.01)
+                                    .clamp_range(0.1_f32..=10.0)
+                                    .prefix("Ball Mass: ")
+                                    .suffix(" kg"),
+                            );
+                        });
                         ui.group(|ui| {
                             ui.vertical(|ui| {
+                                ui.label("Controller:");
                                 ui.push_id(self.id, |ui| {
-                                    ComboBox::from_label("Controller")
+                                    ComboBox::from_label("")
                                         .selected_text(self.controller.to_string())
                                         .show_ui(ui, |ui| {
                                             for options in
@@ -241,6 +279,7 @@ impl Draw for InvertedPendulum {
                                             }
                                         });
                                 });
+                                // ui.separator();
                                 self.controller.options_ui(ui);
                             });
                         });

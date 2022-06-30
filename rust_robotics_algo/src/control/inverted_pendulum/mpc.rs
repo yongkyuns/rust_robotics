@@ -9,7 +9,8 @@ use crate::prelude::*;
 const N: usize = 12; // Prediction horizon
 
 pub fn mpc_control(_x: Vector4, model: Model, dt: f32) -> f32 {
-    let (Ad, Bd) = model.get_model_matrix(dt);
+    // let (Ad, Bd) = model.get_model_matrix(dt);
+    let (Ad, Bd) = model.model(dt);
 
     let u0 = 0.0;
     let umin = vector![(-30_f32 - u0).to_radians()];

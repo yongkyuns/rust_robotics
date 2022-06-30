@@ -6,6 +6,7 @@ use nalgebra::dimension::{DimAdd, DimSum};
 use nalgebra::storage::{Storage, StorageMut};
 use nalgebra::{DefaultAllocator, OMatrix };
 use nalgebra::{Dim, Matrix, Scalar};
+use nalgebra::{Const, ArrayStorage};
 use num_traits::Zero;
 
 pub use core::f32::consts::PI;
@@ -20,6 +21,15 @@ pub type Vector2 = nalgebra::Vector2<f32>;
 pub type Vector3 = nalgebra::Vector3<f32>;
 pub type Vector4 = nalgebra::Vector4<f32>;
 pub type RowVector4 = nalgebra::RowVector4<f32>;
+
+pub type Mat<const M: usize, const N: usize, S = f32> =
+    Matrix<S, Const<M>, Const<N>, ArrayStorage<S, M, N>>;
+
+pub type Vector<const M: usize, S = f32> =
+    Matrix<S, Const<M>, Const<1>, ArrayStorage<S, M, 1>>;
+
+pub type RowVector<const M: usize, S = f32> =
+    Matrix<S, Const<1>, Const<M>, ArrayStorage<S, 1, M>>;
 
 
 pub trait MatrixUtil{
