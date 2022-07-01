@@ -34,5 +34,8 @@ impl eframe::App for App {
 
             self.state.sim.show(ctx, &mut true);
         }); // just to paint a background for the windows to be on top of. Needed on web because of https://github.com/emilk/egui/issues/1548
+
+        // Request repaint everytime
+        ctx.request_repaint();
     }
 }
