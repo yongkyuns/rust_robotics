@@ -4,7 +4,6 @@ pub mod app;
 pub mod data;
 pub mod item;
 pub mod math;
-pub mod plot_demo;
 pub mod simulator;
 pub mod time;
 pub mod view;

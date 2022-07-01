@@ -143,6 +143,7 @@ impl Default for InvertedPendulum {
             "Rod Angular Velocity",
             "Control Input",
         ]);
+
         Self {
             state,
             controller: Controller::lqr(Model::default()),
@@ -214,7 +215,13 @@ impl Simulate for InvertedPendulum {
 
 impl Draw for InvertedPendulum {
     fn plot(&self, plot_ui: &mut PlotUi) {
-        let names = self.data.names();
+        let names: Vec<String> = self
+            .data
+            .names()
+            .iter()
+            .map(|name| format!("{}_{}", name, self.id))
+            .collect();
+
         (0..self.data.ncols()).for_each(|i| {
             self.data
                 .values_from_column(i)
@@ -263,6 +270,9 @@ impl Draw for InvertedPendulum {
                         ui.group(|ui| {
                             ui.vertical(|ui| {
                                 ui.label("Controller:");
+                                // `ComboBox` label can't be a static string
+                                // due to id clashes when adding multiple `ComboBox`s
+                                // ui.push_id is used here to create unique ID
                                 ui.push_id(self.id, |ui| {
                                     ComboBox::from_label("")
                                         .selected_text(self.controller.to_string())

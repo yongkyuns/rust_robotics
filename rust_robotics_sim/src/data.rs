@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 use std::iter::Zip;
 use std::ops::RangeInclusive;
-use std::option::IntoIter;
 use std::slice::Iter;
 
 pub type Time = f32;
@@ -444,7 +443,7 @@ mod tests {
 
     #[test]
     fn series_to_table() {
-        let ts = dummy_f32();
+        let _ts = dummy_f32();
         // let _table: TimeTable<f32> = ts.into();
     }
 }

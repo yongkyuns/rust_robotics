@@ -3,10 +3,7 @@ pub mod pendulum;
 use crate::prelude::*;
 use pendulum::InvertedPendulum;
 
-use egui::{
-    plot::{Line, PlotUi, Values},
-    *,
-};
+use egui::{plot::PlotUi, *};
 use plot::{Corner, Legend, Plot};
 
 /// Base trait to make simulation work within `rust robotics`.
@@ -50,8 +47,8 @@ pub trait Draw {
     fn draw(&self, plot_ui: &mut PlotUi);
     /// Draw any GUI elements to interact with the simulation
     fn options_ui(&mut self, ui: &mut Ui);
-    /// Draw time-domain plot
-    fn plot(&self, plot_ui: &mut PlotUi) {}
+    /// Draw time-domain plot (optional)
+    fn plot(&self, _plot_ui: &mut PlotUi) {}
 }
 
 /// Super-trait for objects which implement both [`Simulate`] and [`Draw`]
@@ -125,7 +122,7 @@ impl Simulator {
     }
 
     /// Draw 2D graphics and GUI elements related to simulation
-    fn scene_ui(&mut self, ui: &mut Ui) {
+    fn draw_scene(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.collapsing("Instructions", |ui| {
                 ui.label("Pan by dragging, or scroll (+ shift = horizontal).");
@@ -138,7 +135,6 @@ impl Simulator {
                     ui.label("Zoom with ctrl + scroll.");
                 }
                 ui.label("Reset view with double-click.");
-                // ui.add(crate::egui_github_link_file!());
             });
         });
 
@@ -188,13 +184,15 @@ impl Simulator {
         });
     }
 
-    fn graph_ui(&mut self, ui: &mut Ui) {
-        self.simulations.iter_mut().for_each(|sim| {
-            Plot::new("Plot")
-                .legend(Legend::default().position(Corner::RightTop))
-                .data_aspect(1.0)
-                .show(ui, |plot_ui| sim.plot(plot_ui));
-        });
+    fn draw_plot(&mut self, ui: &mut Ui) {
+        Plot::new("Plot")
+            .legend(Legend::default().position(Corner::RightTop))
+            .data_aspect(1.0)
+            .show(ui, |plot_ui| {
+                self.simulations
+                    .iter_mut()
+                    .for_each(|sim| sim.plot(plot_ui));
+            });
     }
 }
 
@@ -204,35 +202,20 @@ impl View for Simulator {
     }
 
     fn show(&mut self, ctx: &Context, open: &mut bool) {
+        // Main window to draw 2D simulation graphics
         Window::new(self.name())
             .open(open)
             .default_size(vec2(400.0, 400.0))
             .vscroll(false)
-            .show(ctx, |ui| self.scene_ui(ui));
+            .show(ctx, |ui| self.draw_scene(ui));
 
+        // Optional pop-up window to show time-domain graphs of signals
         if self.show_graph {
             Window::new(format!("{} {}", self.name(), "Plot"))
                 .open(open)
                 .default_size(vec2(400.0, 400.0))
                 .vscroll(false)
-                .show(ctx, |ui| self.graph_ui(ui));
-        }
-    }
-
-    fn ui(&mut self, ui: &mut Ui) {
-        if self.show_graph {
-            egui::SidePanel::right("right_panel")
-                .resizable(true)
-                .default_width(150.0)
-                .width_range(80.0..=500.0)
-                .show_inside(ui, |ui| {
-                    self.graph_ui(ui);
-                });
-            egui::CentralPanel::default().show_inside(ui, |ui| {
-                self.scene_ui(ui);
-            });
-        } else {
-            self.scene_ui(ui);
+                .show(ctx, |ui| self.draw_plot(ui));
         }
     }
 }
