@@ -44,9 +44,9 @@ pub trait Simulate {
 /// Trait to allow visually representing simulation (simulation graphics + GUI)
 pub trait Draw {
     /// Draw the simulation onto a 2D scene
-    fn draw(&self, plot_ui: &mut PlotUi);
+    fn scene(&self, plot_ui: &mut PlotUi);
     /// Draw any GUI elements to interact with the simulation
-    fn options_ui(&mut self, ui: &mut Ui);
+    fn options(&mut self, ui: &mut Ui);
     /// Draw time-domain plot (optional)
     fn plot(&self, _plot_ui: &mut PlotUi) {}
 }
@@ -102,7 +102,8 @@ impl Simulator {
     /// Update the simulation for a single time step
     pub fn update(&mut self) {
         let dt = 0.01;
-        self.time += dt;
+        self.time += dt * self.sim_speed as f32;
+
         self.simulations
             .iter_mut()
             .for_each(|sim| (0..self.sim_speed).for_each(|_| sim.step(dt)));
@@ -118,7 +119,8 @@ impl Simulator {
     /// Add a new simulation instance to the current [`Simulator`]
     pub fn add(&mut self) {
         let id = self.simulations.len() + 1;
-        self.simulations.push(Box::new(InvertedPendulum::new(id)));
+        self.simulations
+            .push(Box::new(InvertedPendulum::new(id, self.time)));
     }
 
     /// Draw 2D graphics and GUI elements related to simulation
@@ -165,7 +167,7 @@ impl Simulator {
 
         ui.horizontal(|ui| {
             self.simulations.iter_mut().for_each(|sim| {
-                sim.options_ui(ui);
+                sim.options(ui);
             });
         });
 
@@ -180,7 +182,7 @@ impl Simulator {
         plot.show(ui, |plot_ui| {
             self.simulations
                 .iter_mut()
-                .for_each(|sim| sim.draw(plot_ui));
+                .for_each(|sim| sim.scene(plot_ui));
         });
     }
 

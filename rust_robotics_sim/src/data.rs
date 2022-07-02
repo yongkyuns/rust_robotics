@@ -5,51 +5,14 @@ use std::slice::Iter;
 
 pub type Time = f32;
 
-/// Aggregate of [`ColumnData`] that can only be added and not deleted.
-/// Length of all [`ColumnData`] are equal, making this effectively a 2D table.
-// pub type DataSet<T = f32> = Vec<ColumnData<T>>;
-
-// /// Aggregate of [`ColumnData`] that can only be added and not deleted.
-// /// Length of all [`ColumnData`] are equal, making this effectively a 2D table.
-// #[derive(Default, Debug)]
-// pub struct DataSet<T = f32> {
-//     inner: Vec<ColumnData<T>>,
-// }
-
-// impl<T> DataSet<T> {
-//     pub fn get(&self, index: usize) -> Option<&ColumnData<T>> {
-//         self.inner.get(index)
-//     }
-//     pub fn get_mut(&mut self, index: usize) -> Option<&mut ColumnData<T>> {
-//         self.inner.get_mut(index)
-//     }
-//     pub fn init_with_names(names: Vec<&str>) -> Self {
-//         let inner: Vec<ColumnData<T>> = names
-//             .iter()
-//             .map(|name| ColumnData::with_name(name.to_string()))
-//             .collect();
-//         Self {
-//             time: Timeline::default(),
-//             inner,
-//         }
-//     }
-//     pub fn add_sample(&mut self, dt: Time, sample: Vec<T>) {
-//         self.time.add(self.time.last() + dt);
-//         self.inner
-//             .iter_mut()
-//             .zip(sample.into_iter())
-//             .for_each(|(vec, el)| vec.add(el));
-//     }
-// }
-
-// impl<T> From<ColumnData<T>> for DataSet<T> {
-//     fn from(data: ColumnData<T>) -> Self {
-//         Self {
-//             time: Timeline::default(),
-//             inner: vec![data],
-//         }
-//     }
-// }
+/// Maximum number of data entries that [`ColumnData`] and [`TimeTable`] can contain
+///
+/// For [`ColumnData`], this is equal to the number of data elements
+/// For [`TimeTable`], this is equal to the number of rows
+///
+/// Upon exceeding this limit, [`ColumnData::add`] and [`TimeTable::add`] will
+/// remove the first entry to keep size at the limit
+pub const LIMIT: usize = 5000;
 
 /// Single column of data
 #[derive(Debug, Default, Clone)]
@@ -82,6 +45,10 @@ impl<T> ColumnData<T> {
 
     pub fn len(&self) -> usize {
         self.data.len()
+    }
+
+    pub fn pop_first(&mut self) {
+        self.data.remove(0);
     }
 
     pub fn add(&mut self, element: T) {
@@ -141,6 +108,13 @@ impl Timeline {
 
     pub fn last(&self) -> Time {
         *self.vec.last().unwrap_or(&0.0)
+    }
+
+    pub fn pop_first(&mut self) {
+        self.vec.remove(0);
+        if let Some((_, i)) = &mut self.cache {
+            *i -= 1;
+        }
     }
 
     /// Checks if time input has changed from last index search
@@ -227,7 +201,35 @@ impl<T> Into<TimeTable<T>> for TimeSeries<T> {
     }
 }
 
+use egui::plot::{Value, Values};
+pub trait IntoValues {
+    fn values(&self, column: usize) -> Option<Values>;
+    fn values_shifted(&self, column: usize, x: f32, y: f32) -> Option<Values>;
+}
+
+impl IntoValues for TimeTable<f32> {
+    fn values(&self, column: usize) -> Option<Values> {
+        self.values_shifted(column, 0.0, 0.0)
+    }
+    fn values_shifted(&self, column: usize, x: f32, y: f32) -> Option<Values> {
+        self.zipped_iter(column).map(|zip| {
+            Values::from_values(
+                zip.into_iter()
+                    .map(|(t, v)| Value {
+                        x: (*t + x) as f64,
+                        y: (*v + y) as f64,
+                    })
+                    .collect(),
+            )
+        })
+    }
+}
+
 impl<T: Clone> TimeTable<T> {
+    pub fn new(time: Vec<Time>, data: Vec<T>) -> Self {
+        TimeSeries::new(time, data).into()
+    }
+
     pub fn from_timeseries(timeseries: TimeSeries<T>) -> Self {
         Self {
             time: timeseries.time,
@@ -243,35 +245,13 @@ impl<T: Clone> TimeTable<T> {
     pub fn ncols(&self) -> usize {
         self.data.len()
     }
+    pub fn pop_first(&mut self) {
+        self.time.pop_first();
+        self.data.iter_mut().for_each(|col| col.pop_first());
+    }
     pub fn clear(&mut self) {
         self.time = Timeline::default();
         self.data.iter_mut().for_each(|col| col.reset());
-    }
-}
-
-use egui::plot::{Value, Values};
-pub trait IntoValues {
-    fn values_from_column(&self, column: usize) -> Option<Values>;
-}
-
-impl IntoValues for TimeTable<f32> {
-    fn values_from_column(&self, column: usize) -> Option<Values> {
-        self.zipped_iter(column).map(|zip| {
-            Values::from_values(
-                zip.into_iter()
-                    .map(|(t, v)| Value {
-                        x: *t as f64,
-                        y: *v as f64,
-                    })
-                    .collect(),
-            )
-        })
-    }
-}
-
-impl<T: Clone> TimeTable<T> {
-    pub fn new(time: Vec<Time>, data: Vec<T>) -> Self {
-        TimeSeries::new(time, data).into()
     }
 
     pub fn get_column(&self, column: usize) -> Option<&ColumnData<T>> {
@@ -282,11 +262,6 @@ impl<T: Clone> TimeTable<T> {
         self.data
             .get(column)
             .map(|col| self.time.iter().zip(col.iter()))
-
-        // self.data.get(column).map(|col| &TimeSeries {
-        //     time: self.time,
-        //     data: *col,
-        // })
     }
 
     pub fn get_at_time(&self, column: usize, time: Time) -> Option<T> {
@@ -328,12 +303,19 @@ impl<T: Clone> TimeTable<T> {
             data,
         }
     }
-    pub fn add_sample(&mut self, time: Time, sample: Vec<T>) {
+    pub fn nrow(&self) -> usize {
+        self.time.len()
+    }
+    pub fn add(&mut self, time: Time, sample: Vec<T>) {
         self.time.add(time);
         self.data
             .iter_mut()
             .zip(sample.into_iter())
             .for_each(|(vec, el)| vec.add(el));
+
+        if self.nrow() > LIMIT {
+            self.pop_first();
+        }
     }
 }
 

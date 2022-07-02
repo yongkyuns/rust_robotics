@@ -1,3 +1,4 @@
+pub mod lqr;
 pub mod pid;
 
 #[cfg(not(feature = "libm"))]
@@ -80,24 +81,5 @@ impl StateSpace<NX, NU> for Model {
         let B = vector![0., 1. / m_c, 0., 1. / (l_bar * m_c)];
 
         (eye!(NX) + A * dt, B * dt)
-    }
-}
-
-pub mod lqr {
-    use super::*;
-
-    impl LQR<NX, NU> for Model {
-        fn Q(&self) -> QMat {
-            self.Q
-        }
-        fn R(&self) -> RMat {
-            self.R
-        }
-        fn epsilon(&self) -> f32 {
-            self.eps
-        }
-        fn max_iter(&self) -> u32 {
-            self.max_iter
-        }
     }
 }

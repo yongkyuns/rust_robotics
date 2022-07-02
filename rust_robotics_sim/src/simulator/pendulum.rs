@@ -5,7 +5,7 @@ use crate::data::{IntoValues, TimeTable};
 use crate::prelude::draw_cart;
 
 use egui::plot::Line;
-use egui::{plot::PlotUi, ComboBox, Ui};
+use egui::{plot::PlotUi, ComboBox, DragValue, Ui};
 use rand::Rng;
 use rb::inverted_pendulum::*;
 use rb::prelude::*;
@@ -26,7 +26,7 @@ impl Controller {
     pub fn control(&mut self, x: State, dt: f32) -> f32 {
         match self {
             Self::LQR(model) => *model.control(x, dt).index(0),
-            Self::PID(pid) => pid.control(-x[2], dt),
+            Self::PID(pid) => pid.control(0.0 - x[2], dt),
         }
     }
     /// Instantiate a new LQR controller for [`InvertedPendulum`]
@@ -35,7 +35,11 @@ impl Controller {
     }
     /// Instantiate a new PID controller for [`InvertedPendulum`]
     pub fn pid() -> Self {
-        Self::PID(PID::default())
+        let mut pid = PID::default();
+        pid.P = 25.0;
+        pid.I = 3.0;
+        pid.D = 3.0;
+        Self::PID(pid)
     }
     /// Reset the states of the current [`Controller`]
     ///
@@ -61,31 +65,62 @@ impl Controller {
         }
     }
     /// Method to draw onto [`egui`] UI.
-    pub fn options_ui(&mut self, ui: &mut Ui) {
+    pub fn options(&mut self, ui: &mut Ui) {
         match self {
             Self::LQR(model) => {
                 ui.vertical(|ui| {
                     ui.label("LQR Model Parameters:");
                     ui.add(
-                        egui::DragValue::new(&mut model.l_bar)
+                        DragValue::new(&mut model.l_bar)
                             .speed(0.01)
                             .clamp_range(0.1_f32..=10.0)
                             .prefix("Beam Length: ")
                             .suffix(" m"),
                     );
                     ui.add(
-                        egui::DragValue::new(&mut model.m_cart)
+                        DragValue::new(&mut model.m_cart)
                             .speed(0.01)
                             .clamp_range(0.1_f32..=3.0)
                             .prefix("Cart Mass: ")
                             .suffix(" kg"),
                     );
                     ui.add(
-                        egui::DragValue::new(&mut model.m_ball)
+                        DragValue::new(&mut model.m_ball)
                             .speed(0.01)
                             .clamp_range(0.1_f32..=10.0)
                             .prefix("Ball Mass: ")
                             .suffix(" kg"),
+                    );
+                    ui.label("Weights");
+                    ui.add(
+                        DragValue::new(model.Q.get_mut(0).unwrap())
+                            .speed(0.01)
+                            .clamp_range(0.0_f32..=100.0)
+                            .prefix("Lateral Position: "),
+                    );
+                    ui.add(
+                        DragValue::new(model.Q.get_mut(5).unwrap())
+                            .speed(0.01)
+                            .clamp_range(0.0_f32..=100.0)
+                            .prefix("Lateral Velocity: "),
+                    );
+                    ui.add(
+                        DragValue::new(model.Q.get_mut(10).unwrap())
+                            .speed(0.01)
+                            .clamp_range(0.0_f32..=100.0)
+                            .prefix("Rod Angle: "),
+                    );
+                    ui.add(
+                        DragValue::new(model.Q.get_mut(15).unwrap())
+                            .speed(0.01)
+                            .clamp_range(0.0_f32..=100.0)
+                            .prefix("Rod Angular Vel: "),
+                    );
+                    ui.add(
+                        DragValue::new(model.R.get_mut(0).unwrap())
+                            .speed(0.01)
+                            .clamp_range(0.0_f32..=100.0)
+                            .prefix("Control Input: "),
                     );
                 });
             }
@@ -93,22 +128,22 @@ impl Controller {
                 ui.vertical(|ui| {
                     ui.label("LQR Model Parameters:");
                     ui.add(
-                        egui::DragValue::new(&mut pid.P)
+                        DragValue::new(&mut pid.P)
                             .speed(0.01)
                             .clamp_range(0.01_f32..=10000.0)
-                            .prefix("P gain"),
+                            .prefix("P gain: "),
                     );
                     ui.add(
-                        egui::DragValue::new(&mut pid.I)
+                        DragValue::new(&mut pid.I)
                             .speed(0.01)
                             .clamp_range(0.01_f32..=10000.0)
-                            .prefix("I gain"),
+                            .prefix("I gain: "),
                     );
                     ui.add(
-                        egui::DragValue::new(&mut pid.D)
+                        DragValue::new(&mut pid.D)
                             .speed(0.01)
                             .clamp_range(0.01_f32..=10000.0)
-                            .prefix("D gain"),
+                            .prefix("D gain: "),
                     );
                 });
             }
@@ -131,11 +166,12 @@ pub struct InvertedPendulum {
     model: Model,
     id: usize,
     data: TimeTable,
+    time_init: f32,
 }
 
 impl Default for InvertedPendulum {
     fn default() -> Self {
-        let state = vector![0., 0., rand::thread_rng().gen_range(-0.4..0.4), 0.];
+        let state = vector![0., 0., rand(0.4), 0.];
         let data = TimeTable::init_with_names(vec![
             "Lateral Position",
             "Lateral Velocity",
@@ -149,15 +185,17 @@ impl Default for InvertedPendulum {
             controller: Controller::lqr(Model::default()),
             model: Model::default(),
             id: 1,
+            time_init: 0.0,
             data,
         }
     }
 }
 
 impl InvertedPendulum {
-    pub fn new(id: usize) -> Self {
+    pub fn new(id: usize, time: f32) -> Self {
         Self {
             id,
+            time_init: time,
             ..Default::default()
         }
     }
@@ -175,12 +213,14 @@ impl Simulate for InvertedPendulum {
     fn get_state(&self) -> &dyn std::any::Any {
         &self.state
     }
+
     fn match_state_with(&mut self, other: &dyn Simulate) {
-        if let Some(data) = other.get_state().downcast_ref::<rb::Vector4>() {
+        if let Some(data) = other.get_state().downcast_ref::<State>() {
             // Then set self's data from `other` if the type matches
             self.state.clone_from(data);
         }
     }
+
     fn step(&mut self, dt: f32) {
         let mut x = self.state.clone();
         let (A, B) = self.model.model(dt);
@@ -192,7 +232,8 @@ impl Simulate for InvertedPendulum {
         x = A * x + B * u;
         self.state = x;
 
-        self.data.add_sample(
+        // Log data
+        self.data.add(
             self.data.time_last() + dt,
             vec![
                 self.state[0],
@@ -203,11 +244,13 @@ impl Simulate for InvertedPendulum {
             ],
         );
     }
+
     fn reset_state(&mut self) {
-        self.state = vector![0., 0., rand::thread_rng().gen_range(-0.4..0.4), 0.];
+        self.state = vector![0., 0., rand(0.4), 0.];
         self.controller.reset_state();
         self.data.clear();
     }
+
     fn reset_all(&mut self) {
         *self = Self::default();
     }
@@ -224,12 +267,12 @@ impl Draw for InvertedPendulum {
 
         (0..self.data.ncols()).for_each(|i| {
             self.data
-                .values_from_column(i)
+                .values_shifted(i, self.time_init, 0.0)
                 .map(|values| plot_ui.line(Line::new(values).name(&names[i])));
         });
     }
 
-    fn draw(&self, plot_ui: &mut PlotUi) {
+    fn scene(&self, plot_ui: &mut PlotUi) {
         draw_cart(
             plot_ui,
             self.x_position(),
@@ -238,7 +281,8 @@ impl Draw for InvertedPendulum {
             &format!("Cart {}", self.id),
         );
     }
-    fn options_ui(&mut self, ui: &mut Ui) {
+
+    fn options(&mut self, ui: &mut Ui) {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 ui.group(|ui| {
@@ -246,21 +290,21 @@ impl Draw for InvertedPendulum {
                         ui.group(|ui| {
                             ui.label("Cart:");
                             ui.add(
-                                egui::DragValue::new(&mut self.model.l_bar)
+                                DragValue::new(&mut self.model.l_bar)
                                     .speed(0.01)
                                     .clamp_range(0.1_f32..=10.0)
                                     .prefix("Beam Length: ")
                                     .suffix(" m"),
                             );
                             ui.add(
-                                egui::DragValue::new(&mut self.model.m_cart)
+                                DragValue::new(&mut self.model.m_cart)
                                     .speed(0.01)
                                     .clamp_range(0.1_f32..=3.0)
                                     .prefix("Cart Mass: ")
                                     .suffix(" kg"),
                             );
                             ui.add(
-                                egui::DragValue::new(&mut self.model.m_ball)
+                                DragValue::new(&mut self.model.m_ball)
                                     .speed(0.01)
                                     .clamp_range(0.1_f32..=10.0)
                                     .prefix("Ball Mass: ")
@@ -289,40 +333,16 @@ impl Draw for InvertedPendulum {
                                             }
                                         });
                                 });
-                                // ui.separator();
-                                self.controller.options_ui(ui);
+                                self.controller.options(ui);
                             });
                         });
                     });
                 });
             });
-
-            // ui.vertical(|ui| {
-            //     ui.style_mut().wrap = Some(false);
-            //     ui.checkbox(animate, "Animate");
-            //     ui.checkbox(square, "Square view")
-            //         .on_hover_text("Always keep the viewport square.");
-            //     ui.checkbox(proportional, "Proportional data axes")
-            //         .on_hover_text("Tick are the same size on both axes.");
-            //     ui.checkbox(coordinates, "Show coordinates")
-            //         .on_hover_text("Can take a custom formatting function.");
-
-            //     ComboBox::from_label("Line style")
-            //         .selected_text(line_style.to_string())
-            //         .show_ui(ui, |ui| {
-            //             for style in [
-            //                 LineStyle::Solid,
-            //                 LineStyle::dashed_dense(),
-            //                 LineStyle::dashed_loose(),
-            //                 LineStyle::dotted_dense(),
-            //                 LineStyle::dotted_loose(),
-            //             ]
-            //             .iter()
-            //             {
-            //                 ui.selectable_value(line_style, *style, style.to_string());
-            //             }
-            //         });
-            // });
         });
     }
+}
+
+pub fn rand(max: f32) -> f32 {
+    rand::thread_rng().gen_range(-max..max)
 }
