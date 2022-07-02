@@ -29,6 +29,13 @@ impl PID {
     pub fn new() -> Self {
         Self::default()
     }
+    pub fn with_gains(P: f32, I: f32, D: f32) -> Self {
+        let mut pid = Self::default();
+        pid.P = P;
+        pid.I = I;
+        pid.D = D;
+        pid
+    }
     pub fn reset_state(&mut self) {
         self.err_int = 0.0;
         self.err_prev = 0.0;

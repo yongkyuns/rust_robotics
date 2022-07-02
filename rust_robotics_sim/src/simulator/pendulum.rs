@@ -35,11 +35,7 @@ impl Controller {
     }
     /// Instantiate a new PID controller for [`InvertedPendulum`]
     pub fn pid() -> Self {
-        let mut pid = PID::default();
-        pid.P = 25.0;
-        pid.I = 3.0;
-        pid.D = 3.0;
-        Self::PID(pid)
+        Self::PID(PID::with_gains(25.0, 3.0, 3.0))
     }
     /// Reset the states of the current [`Controller`]
     ///
@@ -69,7 +65,7 @@ impl Controller {
         match self {
             Self::LQR(model) => {
                 ui.vertical(|ui| {
-                    ui.label("LQR Model Parameters:");
+                    ui.label("LQR Parameters:");
                     ui.add(
                         DragValue::new(&mut model.l_bar)
                             .speed(0.01)
@@ -126,7 +122,7 @@ impl Controller {
             }
             Self::PID(pid) => {
                 ui.vertical(|ui| {
-                    ui.label("LQR Model Parameters:");
+                    ui.label("PID Parameters:");
                     ui.add(
                         DragValue::new(&mut pid.P)
                             .speed(0.01)
@@ -247,6 +243,7 @@ impl Simulate for InvertedPendulum {
 
     fn reset_state(&mut self) {
         self.state = vector![0., 0., rand(0.4), 0.];
+        self.time_init = 0.0;
         self.controller.reset_state();
         self.data.clear();
     }
