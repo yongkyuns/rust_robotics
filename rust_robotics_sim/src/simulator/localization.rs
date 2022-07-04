@@ -88,6 +88,15 @@ impl Simulate for ParticleFilter {
 impl Draw for ParticleFilter {
     fn plot(&self, _plot_ui: &mut PlotUi) {}
     fn scene(&self, plot_ui: &mut PlotUi) {
+        plot_ui.points(egui::plot::Points::new(Values::from_values(
+            self.px
+                .column_iter()
+                .map(|state| Value {
+                    x: *state.get(0).unwrap() as f64,
+                    y: *state.get(1).unwrap() as f64,
+                })
+                .collect(),
+        )));
         MARKERS.iter().for_each(|marker| {
             plot_ui.points(egui::plot::Points::new(marker_values()).radius(2.0));
             if is_detected(marker, &self.x_true) {

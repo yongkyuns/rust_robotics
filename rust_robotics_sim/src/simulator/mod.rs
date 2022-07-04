@@ -92,6 +92,7 @@ pub struct Simulator {
     sim_speed: usize,
     /// Settings to indicate whether to show the graph of simulation signals
     show_graph: bool,
+    paused: bool,
 }
 
 impl Default for Simulator {
@@ -101,6 +102,7 @@ impl Default for Simulator {
             time: 0.0,
             sim_speed: 2,
             show_graph: false,
+            paused: false,
         }
     }
 }
@@ -108,12 +110,14 @@ impl Default for Simulator {
 impl Simulator {
     /// Update the simulation for a single time step
     pub fn update(&mut self) {
-        let dt = 0.01;
-        self.time += dt * self.sim_speed as f32;
+        if !self.paused {
+            let dt = 0.01;
+            self.time += dt * self.sim_speed as f32;
 
-        self.simulations
-            .iter_mut()
-            .for_each(|sim| (0..self.sim_speed).for_each(|_| sim.step(dt)));
+            self.simulations
+                .iter_mut()
+                .for_each(|sim| (0..self.sim_speed).for_each(|_| sim.step(dt)));
+        }
     }
 
     /// Reset the states of all simulations within the currrent [`Simulator`]
@@ -162,6 +166,10 @@ impl Simulator {
         ui.separator();
 
         ui.horizontal(|ui| {
+            let btn_text = if self.paused { "Play" } else { "Stop" };
+            if ui.button(btn_text).clicked() {
+                self.paused = !self.paused;
+            }
             if ui.button("Restart").clicked() {
                 self.simulations
                     .iter_mut()
