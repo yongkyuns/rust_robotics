@@ -1,3 +1,7 @@
+pub mod adapter;
+
+pub use adapter::*;
+
 use std::fmt::Debug;
 use std::iter::Zip;
 use std::ops::RangeInclusive;
@@ -198,30 +202,6 @@ impl<T> Into<TimeTable<T>> for TimeSeries<T> {
             time: self.time,
             data: vec![self.data],
         }
-    }
-}
-
-use egui::plot::{Value, Values};
-pub trait IntoValues {
-    fn values(&self, column: usize) -> Option<Values>;
-    fn values_shifted(&self, column: usize, x: f32, y: f32) -> Option<Values>;
-}
-
-impl IntoValues for TimeTable<f32> {
-    fn values(&self, column: usize) -> Option<Values> {
-        self.values_shifted(column, 0.0, 0.0)
-    }
-    fn values_shifted(&self, column: usize, x: f32, y: f32) -> Option<Values> {
-        self.zipped_iter(column).map(|zip| {
-            Values::from_values(
-                zip.into_iter()
-                    .map(|(t, v)| Value {
-                        x: (*t + x) as f64,
-                        y: (*v + y) as f64,
-                    })
-                    .collect(),
-            )
-        })
     }
 }
 

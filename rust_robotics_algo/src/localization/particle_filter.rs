@@ -35,7 +35,6 @@ pub fn observation(
     rf_id: &[Vector2],
     dt: f32,
 ) -> (Vec<Vector3>, Vector2) {
-    // let x_true = motion_model(x_true, u, dt);
     *x_true = motion_model(*x_true, u, dt);
 
     let Q_sim = diag![0.2];
@@ -56,7 +55,6 @@ pub fn observation(
     let ud2 = u.y() + rand() * sqrt(R_sim.get_diagonal(1));
     let ud = Vector2::new(ud1, ud2);
 
-    // let xd = motion_model(xd, ud, dt);
     *xd = motion_model(*xd, ud, dt);
 
     (z, ud)

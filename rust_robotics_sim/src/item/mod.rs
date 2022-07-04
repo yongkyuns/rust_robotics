@@ -1,10 +1,12 @@
 mod cart;
 mod ellipse;
 mod rectangle;
+mod vehicle;
 
 pub use cart::draw_cart;
 pub use ellipse::{Circle, Ellipse};
 pub use rectangle::Rectangle;
+pub use vehicle::draw_vehicle;
 
 use crate::prelude::*;
 use egui::plot::{Value, Values};

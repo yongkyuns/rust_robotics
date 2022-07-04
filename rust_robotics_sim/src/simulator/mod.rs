@@ -1,6 +1,8 @@
+pub mod localization;
 pub mod pendulum;
 
 use crate::prelude::*;
+use localization::ParticleFilter;
 use pendulum::InvertedPendulum;
 
 use egui::{plot::PlotUi, *};
@@ -72,6 +74,11 @@ where
     }
 }
 
+pub enum SimType {
+    InvertedPendulum,
+    Vehicle,
+}
+
 /// A concrete type for containing simulations and executing them
 pub struct Simulator {
     /// An array of simulations to be shown on the same window and simulated
@@ -117,10 +124,20 @@ impl Simulator {
     }
 
     /// Add a new simulation instance to the current [`Simulator`]
-    pub fn add(&mut self) {
+    pub fn add(&mut self, sim: SimType) {
         let id = self.simulations.len() + 1;
-        self.simulations
-            .push(Box::new(InvertedPendulum::new(id, self.time)));
+        // self.simulations
+        //     .push(Box::new(InvertedPendulum::new(id, self.time)));
+        match sim {
+            SimType::InvertedPendulum => {
+                self.simulations
+                    .push(Box::new(InvertedPendulum::new(id, self.time)));
+            }
+            SimType::Vehicle => {
+                self.simulations
+                    .push(Box::new(ParticleFilter::new(id, self.time)));
+            }
+        }
     }
 
     /// Draw 2D graphics and GUI elements related to simulation
@@ -160,8 +177,11 @@ impl Simulator {
             if ui.button("Reset All").clicked() {
                 self.simulations.iter_mut().for_each(|sim| sim.reset_all());
             }
-            if ui.button("Add New").clicked() {
-                self.add();
+            if ui.button("Add Pendulum").clicked() {
+                self.add(SimType::InvertedPendulum);
+            }
+            if ui.button("Add Vehicle").clicked() {
+                self.add(SimType::Vehicle);
             }
         });
 
@@ -196,6 +216,16 @@ impl Simulator {
                     .for_each(|sim| sim.plot(plot_ui));
             });
     }
+
+    fn options(&mut self, ui: &mut Ui) {
+        // ComboBox::from_label("Simulator options")
+        //     .selected_text(self.controller.to_string())
+        //     .show_ui(ui, |ui| {
+        //         for options in [Controller::lqr(self.model), Controller::pid()].iter() {
+        //             ui.selectable_value(&mut self.controller, *options, options.to_string());
+        //         }
+        //     });
+    }
 }
 
 impl View for Simulator {
@@ -209,7 +239,10 @@ impl View for Simulator {
             .open(open)
             .default_size(vec2(400.0, 400.0))
             .vscroll(false)
-            .show(ctx, |ui| self.draw_scene(ui));
+            .show(ctx, |ui| {
+                self.options(ui);
+                self.draw_scene(ui);
+            });
 
         // Optional pop-up window to show time-domain graphs of signals
         if self.show_graph {

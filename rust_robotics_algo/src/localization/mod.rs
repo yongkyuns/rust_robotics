@@ -4,9 +4,13 @@ pub mod particle_filter;
 
 /// Getter methods for state vector
 pub trait StateVector {
+    /// X Position [m]
     fn x(&self) -> f32;
+    /// Y Position [m]
     fn y(&self) -> f32;
+    /// Heading Angle [rad]
     fn phi(&self) -> f32;
+    /// Velocity [m/s]
     fn v(&self) -> f32;
 }
 
